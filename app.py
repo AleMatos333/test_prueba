@@ -12,6 +12,22 @@ st.set_page_config(page_title="16-PF Portal Clínico", page_icon="🧠", layout=
 
 st.markdown("""
     <style>
+    /* --- LIMPIEZA DE RECUADROS EN LA BARRA LATERAL --- */
+    div[data-testid="stSidebarNav"] {
+        background-color: transparent;
+    }
+    div[data-testid="stRadio"] > div {
+        background-color: transparent !important;
+        border: none !important;
+        padding: 0px !important;
+    }
+    div[data-testid="stSidebar"] div[role="radiogroup"] > label {
+        background-color: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+    
+    /* --- ESTILOS ORIGINALES DE LAS TARJETAS --- */
     .question-card {
         background-color: #1f2937;
         padding: 20px;
@@ -93,9 +109,11 @@ def obtener_password_especialista():
     except Exception:
         return os.getenv("PSY_PASSWORD", "Miriam16PF")
 
-def guardar_test_en_disco(nombre, respuestas):
+def guardar_test_en_disco(nombre, respuestas, edad=None, empresa=None):
     registro = {
         "nombre": nombre,
+        "edad": edad,
+        "empresa": empresa,
         "fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "respuestas": respuestas
     }
@@ -174,15 +192,51 @@ modo_app = st.sidebar.radio("Navegación del Sistema", ["📋 Aplicar Cuestionar
 
 if modo_app == "📋 Aplicar Cuestionario":
     if not st.session_state.test_enviado:
-        st.title("🧠 Evaluación de Personalidad")
-        st.caption("Por favor, responda de forma sincera.")
+        # Añadir el logo en la parte superior antes del título principal
+        logo_path = next(
+            (p for p in [
+                "imagenes/logo_azul_sin_fondo_de_calidad_mas_grande-Photoroom-Photoroom.png",
+                "imagenes/logo.png", "imagenes/logo.jpg", "imagenes/logo.jpeg",
+                "logo.png", "logo.jpg", "logo.jpeg", "assets/logo.png"
+            ] if os.path.exists(p)),
+            None
+        )
+        if logo_path:
+            LOGO_ANCHO_PX = 180  # 👈 Cambia solo este número para agrandar o achicar el logo
+            import base64
+            with open(logo_path, "rb") as f:
+                logo_b64 = base64.b64encode(f.read()).decode()
+            ext = logo_path.rsplit(".", 1)[-1].lower()
+            st.markdown(
+                f"""
+                <div style='text-align:center; margin-bottom: 8px;'>
+                    <img src='data:image/{ext};base64,{logo_b64}' width='{LOGO_ANCHO_PX}'>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+        st.markdown("<h1 style='text-align:center;'>Evaluación de Impacto y Acompañamiento Post-Sismo</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center; color:#9ca3af; font-size:18px;'>Por favor, responda de forma sincera.</p>", unsafe_allow_html=True)
         st.markdown("---")
         
+        # Bloque inicial de captura de datos personales
         nombre_paciente = st.text_input("Introduzca su Nombre y Apellido completo:")
         
-        if not nombre_paciente:
-            st.warning("⚠️ Se requiere ingresar su nombre para inicializar el instrumento.")
+        c_edad, c_empresa = st.columns(2)
+        with c_edad:
+            edad_paciente = st.number_input("Introduzca su Edad:", min_value=1, max_value=120, step=1, value=None, placeholder="Ej. 25")
+        with c_empresa:
+            empresa_paciente = st.text_input("Empresa de la que proviene:", placeholder="Nombre de la organización")
+        
+        # VERIFICACIÓN INTERNA: Solo si se completan los 3 campos obligatorios, aparecen las preguntas
+        if not nombre_paciente or edad_paciente is None or not empresa_paciente.strip():
+            st.warning("⚠️ Se requiere ingresar su Nombre, Edad y Empresa de procedencia para habilitar el cuestionario.")
+            st.markdown("<p style='text-align:center; color:#9ca3af; font-size:18px;'>Tu respuesta es completamente confidencial.</p>", unsafe_allow_html=True)
         else:
+            st.success("📝 Datos registrados. Puede proceder con el cuestionario a continuación.")
+            st.markdown("---")
+            
             total_preguntas = len(PF16_QUESTIONS)
             PREGUNTAS_POR_PAGINA = 5
             total_paginas = (total_preguntas // PREGUNTAS_POR_PAGINA) + (1 if total_preguntas % PREGUNTAS_POR_PAGINA > 0 else 0)
@@ -195,10 +249,11 @@ if modo_app == "📋 Aplicar Cuestionario":
             bloque_preguntas = PF16_QUESTIONS[inicio:fin]
             
             with st.form(key=f"form_paciente_{st.session_state.pagina_actual}"):
+                respuestas_pagina = {}
                 for q in bloque_preguntas:
                     st.markdown(f"<div class='question-card'><span class='badge'>Ítem {q['id']}</span><p style='margin-top:8px;'>{q['text']}</p></div>", unsafe_allow_html=True)
                     
-                    default_idx = 0
+                    default_idx = None
                     if str(q["id"]) in st.session_state.respuestas:
                         prev = st.session_state.respuestas[str(q["id"])]
                         opciones_disponibles = list(q["options"].keys())
@@ -213,24 +268,36 @@ if modo_app == "📋 Aplicar Cuestionario":
                         index=default_idx,
                         label_visibility="collapsed"
                     )
-                    st.session_state.respuestas[str(q["id"])] = opcion
+                    respuestas_pagina[str(q["id"])] = opcion
                     
                 c1, c2 = st.columns(2)
                 with c1:
                     if st.session_state.pagina_actual > 0:
                         if st.form_submit_button("⬅️ Atrás"):
+                            st.session_state.respuestas.update(
+                                {k: v for k, v in respuestas_pagina.items() if v is not None}
+                            )
                             st.session_state.pagina_actual -= 1
                             st.rerun()
                 with c2:
                     if st.session_state.pagina_actual < total_paginas - 1:
                         if st.form_submit_button("Siguiente ➡️"):
-                            st.session_state.pagina_actual += 1
-                            st.rerun()
+                            if any(v is None for v in respuestas_pagina.values()):
+                                st.warning("⚠️ Por favor responda todas las preguntas de esta página antes de continuar.")
+                            else:
+                                st.session_state.respuestas.update(respuestas_pagina)
+                                st.session_state.pagina_actual += 1
+                                st.rerun()
                     else:
                         if st.form_submit_button("🔒 Enviar Evaluación"):
-                            guardar_test_en_disco(nombre_paciente, st.session_state.respuestas)
-                            st.session_state.test_enviado = True
-                            st.rerun()
+                            if any(v is None for v in respuestas_pagina.values()):
+                                st.warning("⚠️ Por favor responda todas las preguntas de esta página antes de enviar.")
+                            else:
+                                st.session_state.respuestas.update(respuestas_pagina)
+                                # Se guardan el nombre, respuestas, edad y empresa ingresados
+                                guardar_test_en_disco(nombre_paciente, st.session_state.respuestas, edad=edad_paciente, empresa=empresa_paciente)
+                                st.session_state.test_enviado = True
+                                st.rerun()
                             
     else:
         st.balloons()
@@ -238,12 +305,12 @@ if modo_app == "📋 Aplicar Cuestionario":
             <div style='background-color: #1e293b; padding: 35px; border-radius: 12px; text-align: center; margin-top: 20px; border-top: 5px solid #10b981;'>
                 <h2 style='color: #10b981;'>✅ Evaluación Finalizada</h2>
                 <p style='font-size: 16px; margin-top:15px; color:#f3f4f6;'>Tus respuestas han sido procesadas de forma segura.</p>
-                <p style='font-size: 14px; color:#9ca3af;'>Ya puedes cerrar el navegador de tu teléfono.</p>
+                <p style='font-size: 14px; color:#9ca3af;'>Agradecemos tu sinceridad. Atentamente Lic. Miriam Araujo.</p>
             </div>
         """, unsafe_allow_html=True)
 
 elif modo_app == "👨‍⚕️ Panel Especialista":
-    st.title("👨‍⚕️ Consola del Especialista Clínico")
+    st.markdown("<h1 style='text-align:center;'>Consola del Especialista Clínico</h1>", unsafe_allow_html=True)
     st.markdown("---")
     
     password = st.text_input("Por seguridad, introduzca su contraseña de especialista:", type="password")
@@ -285,6 +352,12 @@ elif modo_app == "👨‍⚕️ Panel Especialista":
             
             st.markdown("---")
             st.header(f"📊 Expediente: {paciente_data['nombre']}")
+            
+            # Mostrar metadatos adicionales si existen en el registro
+            if "edad" in paciente_data or "empresa" in paciente_data:
+                meta_edad = paciente_data.get("edad", "N/A")
+                meta_empresa = paciente_data.get("empresa", "N/A")
+                st.markdown(f"**Edad:** {meta_edad} años | **Organización / Empresa:** {meta_empresa}")
             
             # Cálculo de puntajes primarios
             brutos = calcular_puntajes_brutos(paciente_data["respuestas"], PF16_QUESTIONS)
@@ -343,15 +416,12 @@ elif modo_app == "👨‍⚕️ Panel Especialista":
                 lista_respuestas = list(paciente_data["respuestas"].values())
                 cant_a = lista_respuestas.count("a")
                 cant_b = lista_respuestas.count("b")
-                cant_c = lista_respuestas.count("c")
                 
-                col1, col2, col3 = st.columns(3)
+                col1, col2 = st.columns(2)
                 with col1:
-                    st.markdown(f"<div class='counter-box'><p style='color:#10b981; font-weight:bold; margin-bottom:2px;'>Total Opción A</p><div class='counter-num'>{cant_a}</div></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='counter-box'><p style='color:#10b981; font-weight:bold; margin-bottom:2px;'>Total Sí (A)</p><div class='counter-num'>{cant_a}</div></div>", unsafe_allow_html=True)
                 with col2:
-                    st.markdown(f"<div class='counter-box'><p style='color:#f59e0b; font-weight:bold; margin-bottom:2px;'>Total Opción B</p><div class='counter-num'>{cant_b}</div></div>", unsafe_allow_html=True)
-                with col3:
-                    st.markdown(f"<div class='counter-box'><p style='color:#ef4444; font-weight:bold; margin-bottom:2px;'>Total Opción C</p><div class='counter-num'>{cant_c}</div></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='counter-box'><p style='color:#f59e0b; font-weight:bold; margin-bottom:2px;'>Total No (B)</p><div class='counter-num'>{cant_b}</div></div>", unsafe_allow_html=True)
                 
                 st.markdown("---")
                 st.subheader("👁️ Auditoría de Respuestas Ítem por Ítem")

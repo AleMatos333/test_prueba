@@ -4,31 +4,31 @@ PF16_QUESTIONS = [
     {
         "id": 1,
         "factor": "General",
-        "text": "Me gusta ver juegos entre equipos deportivos:",
-        "options": {"a": "Sí", "b": "En ocasiones", "c": "No"}
+        "text": "¿Ha sentido que el miedo o la angustia le impiden realizar actividades básicas del día a día (como comer, asearse o atender a su familia)?:",
+        "options": {"a": "SÍ", "b": "NO"}
     },
     {
         "id": 2,
         "factor": "A",
-        "text": "Prefiero a la gente que:",
-        "options": {"a": "Es reservada", "b": "Término medio", "c": "Hace amigos rápidamente"}
+        "text": "¿Se siente constantemente 'en guardia', extremadamente asustadizo o salta ante cualquier ruido mínimo?:",
+        "options": {"a": "SÍ", "b": "NO"}
     },
     {
         "id": 3,
         "factor": "B",
-        "text": "«Mujer» es a «Niña» como «Varón» es a:",
-        "options": {"a": "Niño", "b": "Hombre", "c": "Bebé"}
+        "text": "¿Está teniendo problemas graves para dormir, o se despierta con pesadillas y mucha agitación sobre el terremoto?:",
+        "options": {"a": "SÍ", "b": "NO"}
     },
     {
         "id": 4,
         "factor": "C",
-        "text": "Encuentro que me despierto con un sentimiento de cansancio con bastante frecuencia:",
-        "options": {"a": "Sí", "b": "En ocasiones", "c": "No"}
+        "text": "¿Siente que lo que le rodea no es real, o le cuesta mucho entender dónde está o seguir indicaciones simples?:",
+        "options": {"a": "SÍ", "b": "NO"}
     },
     {
         "id": 5,
         "factor": "E",
-        "text": "Si se me presenta una situation difícil, prefiero:",
-        "options": {"a": "Hacer un plan detallado", "b": "Término medio", "c": "Actuar según el momento"}
+        "text": "¿Ha sentido en estos días que no vale la pena seguir viviendo, o ha tenido deseos de hacerse daño? (Pregunta crítica de riesgo):",
+        "options": {"a": "SÍ", "b": "NO"}
     }
 ]
