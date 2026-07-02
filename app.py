@@ -84,6 +84,15 @@ st.markdown("""
 
 DB_FILE = "historial_clinico_16pf.json"
 
+def obtener_password_especialista():
+    """Lee la contraseña desde .streamlit/secrets.toml (clave PSY_PASSWORD).
+    Si no existe un secrets.toml configurado, usa la contraseña actual como
+    respaldo para no romper el acceso existente."""
+    try:
+        return st.secrets["PSY_PASSWORD"]
+    except Exception:
+        return os.getenv("PSY_PASSWORD", "Miriam16PF")
+
 def guardar_test_en_disco(nombre, respuestas):
     registro = {
         "nombre": nombre,
@@ -192,7 +201,9 @@ if modo_app == "📋 Aplicar Cuestionario":
                     default_idx = 0
                     if str(q["id"]) in st.session_state.respuestas:
                         prev = st.session_state.respuestas[str(q["id"])]
-                        default_idx = list(q["options"].keys()).index(prev)
+                        opciones_disponibles = list(q["options"].keys())
+                        if prev in opciones_disponibles:
+                            default_idx = opciones_disponibles.index(prev)
                         
                     opcion = st.radio(
                         "Opciones:", 
@@ -236,19 +247,41 @@ elif modo_app == "👨‍⚕️ Panel Especialista":
     st.markdown("---")
     
     password = st.text_input("Por seguridad, introduzca su contraseña de especialista:", type="password")
+    password_correcta = obtener_password_especialista()
     
-    if password == "Miriam16PF":
+    if password == password_correcta:
         st.success("🔓 Acceso Clínico Autorizado")
         historial = cargar_historial_clinico()
         
         if not historial:
             st.info("Aún no hay registros de respuestas de pacientes guardados.")
         else:
-            nombres_pacientes = [f"{p['nombre']} ({p['fecha']})" for p in historial]
-            seleccion = st.selectbox("Seleccione el expediente del paciente:", nombres_pacientes)
+            st.caption(f"📁 {len(historial)} evaluación(es) registrada(s) en total.")
+            
+            # Más recientes primero
+            historial_ordenado = sorted(historial, key=lambda p: p["fecha"], reverse=True)
+            
+            busqueda = st.text_input("🔎 Buscar paciente por nombre:", "", placeholder="Ej: Miriam")
+            if busqueda.strip():
+                historial_filtrado = [
+                    p for p in historial_ordenado
+                    if busqueda.strip().lower() in p["nombre"].lower()
+                ]
+            else:
+                historial_filtrado = historial_ordenado
+            
+            if not historial_filtrado:
+                st.warning(f"No se encontraron pacientes que coincidan con '{busqueda}'.")
+                st.stop()
+            
+            nombres_pacientes = [f"{p['nombre']} ({p['fecha']})" for p in historial_filtrado]
+            seleccion = st.selectbox(
+                f"Seleccione el expediente del paciente ({len(historial_filtrado)} encontrado(s)):",
+                nombres_pacientes
+            )
             
             idx_seleccionado = nombres_pacientes.index(seleccion)
-            paciente_data = historial[idx_seleccionado]
+            paciente_data = historial_filtrado[idx_seleccionado]
             
             st.markdown("---")
             st.header(f"📊 Expediente: {paciente_data['nombre']}")
